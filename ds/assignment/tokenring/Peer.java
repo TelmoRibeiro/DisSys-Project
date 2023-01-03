@@ -13,103 +13,99 @@ import java.util.logging.FileHandler;
 import java.util.logging.SimpleFormatter;
 
 
-
+ 
 public class Peer {
-    static int[] portAddress = new int[]{12301, 12302, 12303, 12304, 12305};    // we can access the nth portAddress through Peer.portAddress[n] in any part of the code
-    static int    hostPort;                                                            // this peer port
-    Logger logger;                                                              //
+    static int[] AddressArray = new int[]{12301, 12302, 12303, 12304, 12305};   // global knowledge about the peers
+    static int   nextAddress;                                                   // swap "int" for "String" when hostAddress was changed to IP
+    int          hostAddress;                                                   // swap "int" for "String" when hostAddress was changed to IP
+    Logger       logger;
 
-    public Peer(int hostPort) {
-        this.hostPort    = hostPort;
-        this.logger      = Logger.getLogger("logfile");
+    public int getNextAddress(int hostAddress) {
+        for (int i = 0; i < 5; i++) {
+            if (this.AddressArray[i] == hostAddress) {
+                if (i == 4) { return this.AddressArray[0]; }
+                return this.AddressArray[i + 1];
+            }
+        }
+        return -1;
+    }
+
+    public Peer(int hostAddress) {  // swap "int" for "String" when hostAddress was changed to IP
+        this.hostAddress    = hostAddress;
+        this.nextAddress    = getNextAddress(this.hostAddress);
+        this.logger         = Logger.getLogger("logfile");
         try {
-            FileHandler handler = new FileHandler("./" + this.hostPort + "_peer.log", true);
-            logger.addHandler(handler);
+            FileHandler handler = new FileHandler("./" + this.hostAddress + "_peer.log", true);
+            this.logger.addHandler(handler);
             SimpleFormatter formatter = new SimpleFormatter();
             handler.setFormatter(formatter);
         } catch(Exception exception) { exception.printStackTrace(); }
     }
 
     public static void main(String[] args) throws Exception {
-        Peer peer = new Peer(Integer.parseInt(args[0]));
-        System.out.printf("new peer @ port=%s\n", args[0]);
+        Peer peer = new Peer(Integer.parseInt(args[0]));                            // remove "parseInt" when hostAddress was changed to IP
+        System.out.printf("new peer @ address = %s\n\n", args[0]);
 
-        Scanner scanner = new Scanner(System.in);
-        new Thread(new ConnectionHandler(Integer.parseInt(args[0]), peer.logger)).start();
-        new Thread(new Console(hostPort, peer.logger)).start();
+        new Thread(new Connection(Integer.parseInt(args[0]), peer.logger)).start(); // remove "parseInt" when hostAddress was changed to IP
     }
 }
 
-class ConnectionHandler implements Runnable {
-    int          hostPort;
-    ServerSocket server;
+
+class Connection implements Runnable {
+    int          hostAddress;   // swap "int" for "String" when hostAddress was changed to IP
     Logger       logger;
+    ServerSocket CCSocket;
 
-    public ConnectionHandler(int hostPort, Logger logger) throws Exception {
-        this.hostPort    = hostPort;
+    public Connection(int hostAddress, Logger logger) throws Exception {                                // swap "int" for "String" when hostAddress was changed to IP
+        this.hostAddress = hostAddress;
         this.logger      = logger;
-        this.server      = new ServerSocket(this.hostPort, 1, InetAddress.getByName("localhost"));  // trocar localhost por this.hostAddress no futuro 
-    }
-
-    public int getNextPort(int currentPort) {
-        int index = -1;
-        for (int i = 0; i < 5; i++) {
-            if (Peer.portAddress[i] == currentPort && i < 4)       { index = i + 1; break; }
-            else if (Peer.portAddress[i] == currentPort && i == 4) { index = 0; break; }  
-        }
-        return Peer.portAddress[index];
+        this.CCSocket    = new ServerSocket(this.hostAddress, 1, InetAddress.getByName("localhost"));   // swap "localhost" for "this.hostAddress" and "hostAddress" for a Port
     }
 
     @Override
     public void run() {
         try {
-            logger.info("ConnectionHandler: endpoint running at port " + this.hostPort + " ...");
+            logger.info("connection: endpoint running at port " + this.hostAddress + " ...\n");           // hostAddress will not be a Port in the end
+
             Socket prevSocket = null;
             Socket nextSocket = null;
-            if (this.hostPort == 12301) { // se sou o primeiro
+
+            if (this.hostAddress == 12301) { // TROCAR POR UM ID //
                 try {
-                    nextSocket = new Socket(InetAddress.getByName("localhost"), getNextPort(this.hostPort));
-                    logger.info("ConnectionHandler: new connection to " + nextSocket.getPort());
-                } catch(Exception exception) { /* exception.printStackTrace(); */ }
-                while(true) {
-                    try {
-                        prevSocket = server.accept();
-                        logger.info("ConnectionHandler: new connection from " + prevSocket.getPort());
-                        break;
-                    }
-                    catch(Exception exception) { exception.printStackTrace(); }
-                }
-                new Thread(new Connection(hostPort, prevSocket, nextSocket, logger)).start();
+                    nextSocket = new Socket(InetAddress.getByName("localhost"), Peer.nextAddress);
+                    logger.info("connection: new connection to " + nextSocket.getPort() + "\n");
+
+                    prevSocket = CCSocket.accept();
+                    logger.info("connection: new connection from " + prevSocket.getPort() + "\n");
+                } catch(Exception exception) { exception.printStackTrace(); }
+                new Thread(new ConnectionHandler(hostAddress, prevSocket, nextSocket, logger)).start();
             }
             else {
-                while(true) {
-                    try {
-                        prevSocket = server.accept();
-                        logger.info("ConnectionHandler: new connection from " + prevSocket.getPort());
-                        break;
-                    } catch(Exception exception) { exception.printStackTrace(); }
-                }
                 try {
-                    nextSocket = new Socket(InetAddress.getByName("localhost"), getNextPort(this.hostPort));
-                    logger.info("ConnectionHandler: new connection to " + nextSocket.getPort());
-                } catch(Exception exception) { /* exception.printStackTrace(); */ }
-                new Thread(new Connection(hostPort, prevSocket, nextSocket, logger)).start();
+                    prevSocket = CCSocket.accept();
+                    logger.info("connection: new connection from " + prevSocket.getPort() + "\n");
+                
+                    nextSocket = new Socket(InetAddress.getByName("localhost"), Peer.nextAddress);
+                    logger.info("connection: new connection to " + nextSocket.getPort() + "\n");
+                } catch(Exception exception) { exception.printStackTrace(); }
+                new Thread(new ConnectionHandler(hostAddress, prevSocket, nextSocket, logger)).start();
             }
         } catch(Exception exception) { exception.printStackTrace(); }
     } 
 }
 
-class Connection implements Runnable {
-    int    hostPort;
+
+class ConnectionHandler implements Runnable {
+    int    hostAddress;
     Socket prevSocket;
     Socket nextSocket;
     Logger logger;
 
-    public Connection(int hostPort, Socket prevSocket, Socket nextSocket, Logger logger) {
-        this.hostPort   = hostPort;
-        this.prevSocket = prevSocket;
-        this.nextSocket = nextSocket;
-        this.logger     = logger;
+    public ConnectionHandler(int hostAddress, Socket prevSocket, Socket nextSocket, Logger logger) {
+        this.hostAddress = hostAddress;
+        this.prevSocket  = prevSocket;
+        this.nextSocket  = nextSocket;
+        this.logger      = logger;
     }
 
     @Override
@@ -118,92 +114,84 @@ class Connection implements Runnable {
             BufferedReader in = new BufferedReader(new InputStreamReader(prevSocket.getInputStream()));
             PrintWriter   out = new PrintWriter(nextSocket.getOutputStream(), true);
 
-            ServerSocket server = new ServerSocket(this.hostPort + 1000, 1, InetAddress.getByName("localhost"));
-            Socket console = null;
-            Boolean locked = false;
-            
+            ServerSocket server = new ServerSocket(this.hostAddress + 1000, 1, InetAddress.getByName("localhost"));
+            new Thread(new Console(hostAddress, logger)).start();
+
+            Socket CHCSocket = null;
             try {
-                console = server.accept();
-                logger.info("Connection: new connection from " + console.getPort());
+                CHCSocket = server.accept();
+                logger.info("connection_handler: new connection from " + CHCSocket.getPort() + "\n");
             } catch(Exception exception) { exception.printStackTrace(); }
 
-            BufferedReader inConsole = new BufferedReader(new InputStreamReader(console.getInputStream()));
-            PrintWriter   outConsole = new PrintWriter(console.getOutputStream(), true);
+            BufferedReader CHCIn = new BufferedReader(new InputStreamReader(CHCSocket.getInputStream()));
             
-            if (hostPort == 12301) { locked = true; }
+            Boolean locked = false;
+            if (hostAddress == 12301) { locked = true; }
             while (true) {
-                while (locked) {
-                    String command;
-                    command = inConsole.readLine();
-                    logger.info("Connection: message from " + console.getPort() + " [message = " + command + "]");
+                if (locked) {
+                    String command = CHCIn.readLine();
+                    logger.info("connection_handler: message from " + CHCSocket.getPort() + " [command = " + command + "]\n");
+                    
                     if (command.equals("start")) {
-                        locked = false;
                         int token = 0;
-                        System.out.println("token = " + token + " @ port = " + hostPort);
+                        System.out.println("token = " + token + " @ port = " + hostAddress);
+                        
                         out.println(String.valueOf(token));
                         out.flush();
-                    }
-                }
-                String message;
-                message = in.readLine();
-                logger.info("ConnectionHandler: message from " + this.prevSocket.getPort() + " [message = " + message + "]");
-                int token;
-                token = Integer.parseInt(message);
-                token++;
-                System.out.println("token = " + token + " @ port = " + hostPort);
-                Thread.sleep(3000);
 
-                out.println(String.valueOf(token));
-                out.flush();
+                        locked = false;
+                    }
+
+                    if (command.equals("lock"))   { continue; }
+
+                    if (command.equals("unlock")) { continue;}
+                }
+                if (!locked) {
+                    String message = in.readLine();
+                    logger.info("connection_handler: message from " + this.prevSocket.getPort() + " [message = " + message + "]\n");
+
+                    int token = Integer.parseInt(message);
+                    token++;
+                    System.out.println("token = " + token + " @ port = " + hostAddress);
+                
+                    Thread.sleep(3000);
+
+                    out.println(String.valueOf(token));
+                    out.flush();
+                }
             }
         } catch(Exception exception) { exception.printStackTrace(); }
     }
 }
 
+
 class Console implements Runnable {
-    int    hostPort;
+    int    hostAddress;
     Logger logger;
 
-    public Console(int hostPort, Logger logger) throws Exception {
-        this.hostPort = hostPort;
-        this.logger   = logger;
+    public Console(int hostAddress, Logger logger) throws Exception {
+        this.hostAddress = hostAddress;
+        this.logger      = logger;
     }
 
     @Override
     public void run() {
         try { 
-            logger.info("Console: endpoint running ...\n");
+            logger.info("console: endpoint running ...\n");
+
+            Socket CCHSocket = new Socket(InetAddress.getByName("localhost"), this.hostAddress + 1000);
+            logger.info("console: connected to connection_handler endpoint ...\n");
+            
+            PrintWriter CCHOut = new PrintWriter(CCHSocket.getOutputStream(), true);
 
             Scanner scanner = new Scanner(System.in);
-            System.out.println("Type Y");
-            String hold     = scanner.nextLine();
-            System.out.println("Confirmed with: " + hold);
-
-            Socket console = new Socket(InetAddress.getByName("localhost"), this.hostPort + 1000);
-            logger.info("Console: connected to Connection endpoint ...\n");
-
-            BufferedReader inConsole = new BufferedReader(new InputStreamReader(console.getInputStream()));
-            PrintWriter   outConsole = new PrintWriter(console.getOutputStream(), true);
-
-            String command;
             while(true) {
-                command = scanner.nextLine();
-                if (command.equals("quit")) { return; }
-                outConsole.println(command);
-                outConsole.flush();
+                String command = scanner.nextLine();
+                System.out.println();
+                
+                CCHOut.println(command);
+                CCHOut.flush();
             }
         } catch(Exception exception) { exception.printStackTrace(); }
     }
 }
-
-/*
-2 Threads -> Console and ConnectionHandler
-Console:
-- start
-- lock
-- unlock
-ConnectionHandler:
-- keeps connection OPEN with 2 machines (for testing localhost but different port)
-- DURING the development each peer knows the next port, LATER it will be switched to IPs
--
-*/
