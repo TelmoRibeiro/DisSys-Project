@@ -15,10 +15,12 @@ import java.util.logging.SimpleFormatter;
 
  
 public class Peer {
-    static int[] AddressArray = new int[]{12301, 12302, 12303, 12304, 12305};   // global knowledge about the peers
-    static int   nextAddress;                                                   // swap "int" for "String" when hostAddress was changed to IP
-    int          hostAddress;                                                   // swap "int" for "String" when hostAddress was changed to IP
-    Logger       logger;
+    static Boolean hasToRead = false;   
+
+    static int[]   AddressArray = new int[]{12301, 12302, 12303, 12304, 12305};   // global knowledge about the peers
+    static int     nextAddress;                                                   // swap "int" for "String" when hostAddress was changed to IP
+    int            hostAddress;                                                   // swap "int" for "String" when hostAddress was changed to IP
+    Logger         logger;
 
     public int getNextAddress(int hostAddress) {
         for (int i = 0; i < 5; i++) {
@@ -125,41 +127,40 @@ class ConnectionHandler implements Runnable {
 
             BufferedReader CHCIn = new BufferedReader(new InputStreamReader(CHCSocket.getInputStream()));
             
-            Boolean locked = false;
-            if (hostAddress == 12301) { locked = true; }
-            while (true) {
-                if (locked) {
+            if (hostAddress == 12301) { Peer.hasToRead = true; }
+            while(true) {
+                if (Peer.hasToRead) {
                     String command = CHCIn.readLine();
                     logger.info("connection_handler: message from " + CHCSocket.getPort() + " [command = " + command + "]\n");
-                    
-                    if (command.equals("start")) {
-                        int token = 0;
-                        System.out.println("token = " + token + " @ port = " + hostAddress);
-                        
-                        out.println(String.valueOf(token));
-                        out.flush();
 
-                        locked = false;
+                    switch(command) {
+                        case "start":
+                            int token = 0;
+                            System.out.println("token = " + token + " @ port = " + hostAddress + "\n");
+                            Peer.hasToRead = false; 
+                            out.println(String.valueOf(token));
+                            out.flush();
+                            break;
+                        case "unlock":
+                            Peer.hasToRead = false;
+                            break;
+                        case "lock":
+                            Peer.hasToRead = true;
+                            break;
                     }
-
-                    if (command.equals("lock"))   { continue; }
-
-                    if (command.equals("unlock")) { continue;}
                 }
-                if (!locked) {
+                if (!Peer.hasToRead) {
                     String message = in.readLine();
                     logger.info("connection_handler: message from " + this.prevSocket.getPort() + " [message = " + message + "]\n");
 
                     int token = Integer.parseInt(message);
                     token++;
                     System.out.println("token = " + token + " @ port = " + hostAddress);
-                
-                    Thread.sleep(3000);
-
+                    Thread.sleep(3000); // maybe remove from here
                     out.println(String.valueOf(token));
                     out.flush();
                 }
-            }
+            }                 
         } catch(Exception exception) { exception.printStackTrace(); }
     }
 }
@@ -188,7 +189,7 @@ class Console implements Runnable {
             while(true) {
                 String command = scanner.nextLine();
                 System.out.println();
-                
+                Peer.hasToRead = true;
                 CCHOut.println(command);
                 CCHOut.flush();
             }
