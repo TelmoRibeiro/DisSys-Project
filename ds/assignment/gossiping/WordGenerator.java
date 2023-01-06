@@ -26,7 +26,8 @@ public class WordGenerator implements Runnable {
   public void generate(ArrayList<String> fileList) {
     Random random = new Random();
     String word   = fileList.get(random.nextInt(fileList.size()));
-    System.out.println("Generated Word: " + word);    // REMOVE WHEN FINISHED //
+    System.out.println("Word Generated: " + word);
+    System.out.println();
 
     try {
       Socket WGPSocket = new Socket(InetAddress.getByName("localhost"), 12303);
@@ -46,8 +47,8 @@ public class WordGenerator implements Runnable {
     while(true) {
       double dt = process.timeForNextEvent() * 60 * 1000;
       long time = (long)dt;
-      System.out.println("Poisson Value: " + dt);   // REMOVE WHEN FINISHED //
-      System.out.println("t - " + time);            // REMOVE WHEN FINISHED //
+      System.out.println("t - " + time);
+      System.out.println();
       try { Thread.sleep(time); } catch(Exception exception) { exception.printStackTrace(); }
       generate(this.fileList);
     }
