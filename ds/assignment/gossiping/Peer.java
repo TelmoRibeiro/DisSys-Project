@@ -73,6 +73,7 @@ public class Peer {
       hostTable[serverID] = serverAddress;
 
       P2POut.println(hostID);
+      logger.info("handshake_client: new message to " + P2PSocket.getInetAddress().getHostAddress() + " [message=" + hostID + "]\n");
       P2POut.flush();
 
       P2PSocket.close();
@@ -94,15 +95,17 @@ public class Peer {
 
     new Thread(new HandshakeServer(hostID, hostAddress, currPeer.hostTable, currPeer.logger)).start();
     readCommands(hostID, currPeer.hostTable, currPeer.logger);
-    // Only for testing
+    
+    System.out.println("Table Status:");
     for (int i = 1; i < 7; i++) {
       System.out.println("Peer " + i + ": " + currPeer.hostTable[i]);
     }
-    // Only for testing
+    System.out.println();
+
     new Thread(new WordGenerator(currPeer.fileList)).start();
     new Thread(new Server(hostAddress, currPeer.hostTable, currPeer.messageMap, currPeer.logger)).start();
 
-    int hostMessages = 0;
+    int hostMessages = 1;
     ServerSocket server = new ServerSocket(12303, 1, InetAddress.getByName("localhost"));
     while (true) {
       try {
@@ -113,6 +116,12 @@ public class Peer {
         String word    = PWGIn.readLine();
         String key     = String.valueOf(hostID) + String.valueOf(hostMessages);
         currPeer.messageMap.put(Integer.parseInt(key), word);
+
+        System.out.println("Map Status:");
+        for (HashMap.Entry<Integer, String> entry: currPeer.messageMap.entrySet()) {
+          System.out.println(entry.getKey() + ":" + entry.getValue().toString());
+        }
+        System.out.println();
 
         String message = String.valueOf(hostID) + String.valueOf(hostMessages) + " " + word;
         new Thread(new Client(message, hostAddress, currPeer.hostTable, currPeer.logger)).start();
@@ -153,6 +162,7 @@ class HandshakeServer implements Runnable {
         PrintWriter   P2POut = new PrintWriter(P2PSocket.getOutputStream(), true);
 
         P2POut.println(String.valueOf(this.hostID));
+        logger.info("handshake_server: new message to " + P2PSocket.getInetAddress().getHostAddress() + " [message=" + this.hostID + "]\n");
         P2POut.flush();
 
         String message = P2PIn.readLine();

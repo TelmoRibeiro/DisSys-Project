@@ -53,13 +53,17 @@ public class Server implements Runnable{
 
         if (!messageMap.containsKey(messageID)) {
           messageMap.put(messageID, word);
-          // only for testing //
-          System.out.println("Word: " + word + " added to the map with ID: " + messageID);
-          // only for testing //
+          
+          System.out.println("Map Status:");
+          for (HashMap.Entry<Integer, String> entry: messageMap.entrySet()) {
+            System.out.println(entry.getKey() + ":" + entry.getValue().toString());
+          }
+          System.out.println();
+
           new Thread(new Client(message, this.hostAddress, this.hostTable, this.logger)).start();
         }
         else if (!blacklist.contains(messageID) && Math.random() > 0.20) { new Thread(new Client(message, this.hostAddress, this.hostTable, this.logger)).start(); }
-        else                                                            { blacklist.add(messageID); }
+        else                                                             { blacklist.add(messageID); }
         P2PSocket.close();
       } catch(Exception exception) { exception.printStackTrace(); }
     }

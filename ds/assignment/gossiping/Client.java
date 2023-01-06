@@ -45,6 +45,7 @@ public class Client implements Runnable {
       PrintWriter P2POut = new PrintWriter(P2PSocket.getOutputStream(), true);
 
       P2POut.println(this.message);
+      logger.info("client: new message to " + P2PSocket.getInetAddress().getHostAddress() + " [message=" + this.message + "]\n");
       P2POut.flush();
 
       P2PSocket.close();
